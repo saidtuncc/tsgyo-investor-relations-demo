@@ -1,274 +1,298 @@
 import React, { useState } from 'react';
-import { Send, Bot, User, FileText, MessageSquare } from 'lucide-react';
+import { Send, Bot, User, FileText } from 'lucide-react';
 import { api } from '../services/api';
-import { AssistantResponse, KapNotification } from '../types';
-import { PageSection } from './ui';
-import { appConfig } from '../config/appConfig';
+import type { AssistantResponse } from '../types';
 
-type ChatMessage = { type: 'user' | 'bot'; content: AssistantResponse | string };
+type ChatRole = 'user' | 'assistant';
 
-const suggestedQuestions = [
+type ChatMessage = {
+  id: number;
+  role: ChatRole;
+  content: string;
+  answer?: AssistantResponse;
+};
+
+const suggestedQuestions: string[] = [
   'Portföy toplam değeri nedir?',
   'Pendorya AVM portföy içindeki payı nedir?',
   'Divan Adana oteli için özet verir misin?',
   'Son özkaynak değeri ve NAV ne durumda?',
-  'Gayrimenkul portföyünün şehir dağılımı hakkında bilgi verir misin?',
-  'Kira geliri ve risk görünümü hakkında kısa bir özet paylaşır mısın?',
 ];
 
-const getHighlights = (answer: string) => {
-  const sentences = answer
-    .split(/(?<=[.!?])\s+/)
-    .map((s) => s.trim())
-    .filter(Boolean);
-  const keywords = ['pendorya', 'özkaynak', 'equity', 'portföy', 'nav', 'risk'];
+const highlightKeywords = ['pendorya', 'özkaynak', 'nav', 'portföy', 'kira', 'değer'];
 
-  const matched = sentences.filter((sentence) =>
-    keywords.some((keyword) => sentence.toLowerCase().includes(keyword)),
-  );
+const renderHighlightedText = (text: string) => {
+  const lower = text.toLowerCase();
+  const indices: { start: number; end: number }[] = [];
 
-  return Array.from(new Set(matched));
-};
+  highlightKeywords.forEach((kw) => {
+    let idx = lower.indexOf(kw);
+    while (idx !== -1) {
+      indices.push({ start: idx, end: idx + kw.length });
+      idx = lower.indexOf(kw, idx + kw.length);
+    }
+  });
 
-const TypeBadge: React.FC<{ notification: KapNotification }> = ({ notification }) => {
-  const base = 'text-[11px] px-2 py-0.5 rounded-full font-medium';
-  const type = notification.type.toLowerCase();
-  if (type.includes('finansal')) return <span className={`${base} bg-blue-50 text-blue-700`}>{notification.type}</span>;
-  if (type.includes('özel')) return <span className={`${base} bg-amber-50 text-amber-700`}>{notification.type}</span>;
-  return <span className={`${base} bg-slate-100 text-slate-700`}>{notification.type}</span>;
-};
+  if (!indices.length) return text;
 
-type ChatMessage = { type: 'user' | 'bot'; content: AssistantResponse | string };
+  // çakışmaları temizle
+  indices.sort((a, b) => a.start - b.start);
+  const merged: typeof indices = [];
+  for (const r of indices) {
+    const last = merged[merged.length - 1];
+    if (!last || r.start > last.end) {
+      merged.push({ ...r });
+    } else if (r.end > last.end) {
+      last.end = r.end;
+    }
+  }
 
-const suggestedQuestions = [
-  'Portföy toplam değeri nedir?',
-  'Pendorya AVM hakkında bilgi verir misin?',
-  'Divan Adana oteli için özet verir misin?',
-  'Son özkaynak durumunu söyle.',
-];
+  const parts: React.ReactNode[] = [];
+  let cursor = 0;
 
-const getHighlights = (answer: string) => {
-  const sentences = answer
-    .split(/(?<=[.!?])\s+/)
-    .map((s) => s.trim())
-    .filter(Boolean);
-  const keywords = ['pendorya', 'özkaynak', 'equity', 'portföy'];
+  merged.forEach((r, i) => {
+    if (cursor < r.start) {
+      parts.push(text.slice(cursor, r.start));
+    }
+    parts.push(
+      <mark
+        key={`h-${i}`}
+        className="bg-amber-100 text-amber-900 rounded px-0.5"
+      >
+        {text.slice(r.start, r.end)}
+      </mark>,
+    );
+    cursor = r.end;
+  });
 
-  const matched = sentences.filter((sentence) =>
-    keywords.some((keyword) => sentence.toLowerCase().includes(keyword)),
-  );
+  if (cursor < text.length) {
+    parts.push(text.slice(cursor));
+  }
 
-  return Array.from(new Set(matched));
+  return parts;
 };
 
 export const Assistant: React.FC = () => {
   const [question, setQuestion] = useState('');
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(false);
-  const [history, setHistory] = useState<ChatMessage[]>([]);
 
-  const askQuestion = async (text: string, options?: { clearAfterSend?: boolean }) => {
-    const prepared = text.trim();
-    if (!prepared) return;
+  const ask = async (raw: string) => {
+    const trimmed = raw.trim();
+    if (!trimmed || loading) return;
 
-    setHistory((prev) => [...prev, { type: 'user', content: prepared }]);
+    const baseId = Date.now();
+
+    // Kullanıcı mesajını ekle
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: baseId,
+        role: 'user',
+        content: trimmed,
+      },
+    ]);
+
+    setQuestion('');
     setLoading(true);
 
     try {
-      const response = await api.askAssistant(prepared);
-      setHistory((prev) => [...prev, { type: 'bot', content: response }]);
-    } catch (err) {
-      setHistory((prev) => [
+      const res = await api.askAssistant(trimmed);
+
+      setMessages((prev) => [
         ...prev,
         {
-          type: 'bot',
-          content: {
-            answer: 'Üzgünüm, bir hata oluştu. Lütfen tekrar deneyin.',
-          },
+          id: baseId + 1,
+          role: 'assistant',
+          content: res.answer,
+          answer: res,
+        },
+      ]);
+    } catch (e) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: baseId + 1,
+          role: 'assistant',
+          content:
+            'Şu anda isteği işlerken bir hata oluştu. Lütfen bağlantınızı kontrol edip tekrar dener misiniz?',
         },
       ]);
     } finally {
-      if (options?.clearAfterSend !== false) {
-        setQuestion('');
-      }
       setLoading(false);
     }
   };
 
-  const handleAsk = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    await askQuestion(question);
+    void ask(question);
   };
 
-  const handleSuggestion = (text: string) => {
-    setQuestion(text);
-    void askQuestion(text);
+  const handleSuggestionClick = (q: string) => {
+    void ask(q);
   };
 
   return (
-    <PageSection
-      title="IR Asistanı"
-      subtitle="Portföy, NAV ve KAP sorularına hızlı yanıtlar"
-      actions={
-        <span className="text-xs text-gray-500">{appConfig.assistantRoadmap}</span>
-      }
-    >
-      <div className="flex flex-col bg-gray-50 rounded-xl border border-gray-100 overflow-hidden">
-        <div className="bg-slate-800 p-4 text-white flex items-center space-x-3">
-          <Bot className="w-6 h-6" />
-          <div>
-            <h2 className="font-semibold">Yatırımcı İlişkileri Asistanı</h2>
-            <p className="text-xs text-slate-300">{appConfig.shortName} hakkında sorularınızı sorun</p>
+    <div className="space-y-3 aniamte-fade-in pb-10">
+      {/* Sayfa başlığı */}
+      <header className="flex flex-col gap-2 sm:flex-row sm:items-baseline sm:justify-between">
+        <div>
+          <h2 className="text-2xl font-bold text-slate-900">IR Asistanı</h2>
+          <p className="text-sm text-slate-500">
+            Portföy, NAV ve KAP sorularınıza hızlı yanıtlar. Yatırımcı ilişkileri ve
+            yönetim ekibini desteklemek için tasarlanmış, kurum içi bir asistan.
+          </p>
+        </div>
+        <p className="text-xs text-slate-400 max-w-md sm:text-right">
+          Planlanan geliştirmeler: canlı KAP entegrasyonu, iç raporlardan tam metin
+          arama ve OpenAI orkestrasyonuyla gelişmiş senaryo analizleri.
+        </p>
+      </header>
+
+      <section className="bg-slate-900 text-white rounded-2xl p-5 sm:p-6 shadow-sm min-h-[400px]">
+        {/* HEADER BLOĞU – GÜNCEL HÂLİ */}
+        <div className="flex items-start gap-3 mb-5">
+          <div className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center flex-shrink-0">
+            <Bot className="w-5 h-5 text-sky-300" />
+          </div>
+          <div className="flex-1">
+            <h3 className="text-base font-semibold">Yatırımcı İlişkileri Asistanı</h3>
+            <p className="mt-1 text-xs text-slate-300 leading-relaxed">
+              TSKB GYO hakkında portföy, NAV, KAP bildirimleri ve temel finansal
+              sorularınızı doğal dilde sorabilirsiniz. Yanıtlar, demo amaçlı veri
+              seti üzerinden üretilmektedir.
+            </p>
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 space-y-6 max-h-[520px]">
-          {history.length === 0 && (
-            <div className="text-center text-gray-400 mt-6">
-              <p className="mb-3 font-medium text-slate-600">Örnek sorular</p>
-              <ul className="text-sm space-y-1 text-gray-500">
-                {suggestedQuestions.slice(0, 4).map((example) => (
-                  <li key={example}>• {example}</li>
-                ))}
-              </ul>
-            </div>
-          )}
 
-          {history.map((msg, idx) => (
-            <div key={idx} className={`flex ${msg.type === 'user' ? 'justify-end' : 'justify-start'}`}>
-              <div
-                className={`max-w-[80%] rounded-2xl p-4 ${
-                  msg.type === 'user'
-                    ? 'bg-blue-600 text-white rounded-tr-none shadow-sm'
-                    : 'bg-white border border-gray-200 text-slate-800 rounded-tl-none shadow-sm'
-                }`}
-              >
-                {msg.type === 'user' ? (
-                  <div className="flex items-start gap-2">
-                    <User className="w-4 h-4 mt-0.5" />
-                    <p className="leading-relaxed">{msg.content as string}</p>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {(() => {
-                      const response = msg.content as AssistantResponse;
-                      const highlights = response.highlights ?? getHighlights(response.answer);
-                      return (
-                        <>
-                          <p className="leading-relaxed whitespace-pre-line text-[15px]">{response.answer}</p>
-                          {response.equityValue !== undefined && response.equityValue !== null && (
-                            <div className="text-sm text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-2">
-                              Son özkaynak değeri:{' '}
-                              <span className="font-semibold">
-                                {response.equityValue.toLocaleString('tr-TR')} TL
-                              </span>
-                            </div>
-                          )}
-                          {highlights.length > 0 && (
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                              {highlights.map((highlight, index) => (
-                                <div
-                                  key={`${highlight}-${index}`}
-                                  className="border border-indigo-100 bg-indigo-50 text-indigo-800 rounded-lg p-3 text-sm flex items-start gap-2"
+        <div className="bg-white/5 rounded-xl p-4 sm:p-7 min-h-[430px] flex flex-col">
+          {/* Mesaj listesi / boş durumda örnekler */}
+          {messages.length === 0 ? (
+            <div className="flex-1 flex flex-col items-center justify-center text-center gap-3 text-slate-200">
+              <div className="text-sm font-medium">Örnek sorular:</div>
+              <div className="text-xs space-y-1">
+                <p>• Portföy toplam değeri nedir?</p>
+                <p>• Pendorya AVM portföy içindeki payı nedir?</p>
+                <p>• Divan Adana oteli için özet verir misin?</p>
+                <p>• Son özkaynak değeri ve NAV ne durumda?</p>
+              </div>
+            </div>
+          ) : (
+            <div className="flex-1 space-y-4 max-h-[320px] overflow-y-auto pr-1">
+              {messages.map((m) => {
+                const isUser = m.role === 'user';
+                return (
+                  <div
+                    key={m.id}
+                    className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}
+                  >
+                    <div
+                      className={`max-w-xl rounded-2xl px-4 py-3 text-sm shadow-sm ${
+                        isUser
+                          ? 'bg-sky-600 text-white rounded-br-sm'
+                          : 'bg-white/95 text-slate-900 rounded-bl-sm'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 mb-1 text-xs text-slate-400">
+                        {isUser ? (
+                          <>
+                            <User className="w-3.5 h-3.5" />
+                            <span>Kullanıcı</span>
+                          </>
+                        ) : (
+                          <>
+                            <Bot className="w-3.5 h-3.5" />
+                            <span>Asistan</span>
+                          </>
+                        )}
+                      </div>
+
+                      <p className="whitespace-pre-line">
+                        {isUser
+                          ? m.content
+                          : m.answer
+                          ? renderHighlightedText(m.answer.answer)
+                          : m.content}
+                      </p>
+
+                      {/* KAP kaynakları */}
+                      {!isUser && m.answer?.sources && m.answer.sources.length > 0 && (
+                        <div className="mt-3 border-t border-slate-100 pt-2">
+                          <p className="text-[11px] font-medium text-slate-500 mb-1">
+                            İlgili KAP kayıtları:
+                          </p>
+                          <ul className="space-y-1">
+                            {m.answer.sources.map((s) => (
+                              <li
+                                key={s.id}
+                                className="flex items-center gap-2 text-[11px] text-slate-600"
+                              >
+                                <FileText className="w-3 h-3 flex-shrink-0" />
+                                <a
+                                  href={s.url}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="underline underline-offset-2 hover:text-slate-800"
                                 >
-                                  <MessageSquare className="w-4 h-4 mt-0.5" />
-                                  <span>{highlight}</span>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                          {response.pendoryaResults && response.pendoryaResults.length > 0 && (
-                            <div className="bg-gray-50 rounded-lg p-3 text-sm border border-gray-100 space-y-2">
-                              <p className="text-xs font-semibold text-gray-600 uppercase">
-                                Eşleşen KAP Bildirimleri
-                              </p>
-                              <ul className="space-y-2">
-                                {response.pendoryaResults.map((source) => (
-                                  <li
-                                    key={source.id}
-                                    className="flex items-start justify-between gap-3 bg-white border border-gray-100 rounded-lg p-3"
-                                  >
-                                    <div className="flex items-start gap-2">
-                                      <FileText className="w-4 h-4 mt-0.5 text-blue-500 shrink-0" />
-                                      <div className="space-y-1">
-                                        <TypeBadge notification={source} />
-                                        <div className="font-semibold text-slate-800 leading-snug">{source.title}</div>
-                                        <div className="text-xs text-gray-500 mt-1">
-                                          {source.publish_datetime
-                                            ? new Date(source.publish_datetime).toLocaleString('tr-TR')
-                                            : '—'}
-                                        </div>
-                                      </div>
-                                    </div>
-                                    <a
-                                      href={source.url}
-                                      target="_blank"
-                                      rel="noreferrer"
-                                      className="text-blue-600 text-xs font-medium hover:underline"
-                                    >
-                                      KAP'ta aç
-                                    </a>
-                                  </li>
-                                ))}
-                              </ul>
-                            </div>
-                          )}
-                        </>
-                      );
-                    })()}
+                                  {s.title}
+                                </a>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                )}
-              </div>
-              <span>Asistan düşünüyor...</span>
-            </div>
-          ))}
-          {loading && (
-            <div className="flex justify-start">
-              <div className="bg-white border border-gray-200 rounded-2xl rounded-tl-none p-4 shadow-sm flex items-center gap-3 text-sm text-gray-500">
-                <div className="flex space-x-1">
-                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" />
-                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-75" />
-                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-150" />
-                </div>
-                <span>Asistan düşünüyor...</span>
-              </div>
+                );
+              })}
             </div>
           )}
-        </div>
 
-        <div className="p-4 bg-white border-t border-gray-100 space-y-3">
-          <div className="flex flex-wrap gap-2">
-            {suggestedQuestions.map((item) => (
-              <button
-                key={item}
-                type="button"
-                onClick={() => handleSuggestion(item)}
-                disabled={loading}
-                className="text-xs px-3 py-1 rounded-full border border-gray-200 text-slate-600 hover:bg-gray-50 disabled:opacity-60"
-              >
-                {item}
-              </button>
-            ))}
-          </div>
+          {/* Tek bir yerde, sade loading indicator */}
+          {loading && (
+            <div className="mt-3 flex items-center gap-2 text-[11px] text-slate-300">
+              <span className="inline-flex h-2 w-2 rounded-full bg-sky-400 animate-pulse" />
+              <span>Asistan yanıt hazırlıyor…</span>
+            </div>
+          )}
 
-          <form onSubmit={handleAsk} className="flex space-x-2">
+          {/* Soru inputu */}
+          <form onSubmit={handleSubmit} className="mt-4 flex gap-2">
             <input
               type="text"
               value={question}
               onChange={(e) => setQuestion(e.target.value)}
               placeholder="Sorunuzu buraya yazın..."
               disabled={loading}
-              className="flex-1 border border-gray-200 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 transition disabled:bg-gray-50"
+              className="flex-1 text-sm rounded-lg border border-slate-200 px-3 py-2 outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500 bg-white text-slate-900 placeholder:text-slate-400"
             />
             <button
               type="submit"
               disabled={loading || !question.trim()}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition disabled:opacity-50"
+              className="inline-flex items-center justify-center rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-700 disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              <Send className="w-5 h-5" />
+              <Send className="w-4 h-4" />
             </button>
           </form>
+
+          {/* Önerilen sorular (altta, tam genişlik) */}
+          <div className="mt-2 flex flex-wrap gap-2">
+            {suggestedQuestions.map((q) => (
+              <button
+                key={q}
+                type="button"
+                onClick={() => handleSuggestionClick(q)}
+                className="text-[11px] px-3 py-1 rounded-full border border-slate-200 bg-white/80 text-slate-700 hover:bg-slate-50"
+              >
+                {q}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
-    </PageSection>
+      </section>
+    </div>
   );
 };
+
+export default Assistant;

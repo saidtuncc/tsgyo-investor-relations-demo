@@ -51,23 +51,30 @@ export const PortfolioSection: React.FC = () => {
     totalValuation > 0 && pendorya?.valuation_value_tl
       ? (pendorya.valuation_value_tl / totalValuation) * 100
       : null;
-
-  const pendorya = items.find((p) =>
-    p.name.toLowerCase().includes('pendorya'),
-  );
-
-  const pendoryaShare =
-    totalValuation > 0 && pendorya?.valuation_value_tl
-      ? (pendorya.valuation_value_tl / totalValuation) * 100
-      : null;
-
+      const handleExport = () => {
+        if (!items.length) return;
+    
+        downloadCsv(
+          'tskb-gyo-portfoy-ozeti.csv',
+          items.map((p) => ({
+            Varlik: p.name,
+            Tur: p.property_type ?? '',
+            Sehir: p.city ?? '',
+            BrutAlanVeyaOda: p.rooms ?? p.gross_area_sqm ?? '',
+            KiralanabilirAlan: p.gla_sqm ?? '',
+            EkspertizDegeriTL: p.valuation_value_tl ?? '',
+            EkspertizTarihi: p.valuation_date ?? '',
+          })),
+        );
+      };
+    
   return (
     <PageSection
       title="Portföy Özeti"
       subtitle="Mevcut gayrimenkul portföyü ve ekspertiz değerleri"
       actions={
         <button
-          onClick={() => downloadCsv('tskb-gyo-portfolio.csv', items)}
+          onClick={handleExport}
           className="text-xs px-3 py-1 rounded-lg border border-gray-200 text-slate-600 hover:bg-gray-50"
         >
           Excel'e aktar
