@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../services/api';
 import type { PortfolioProperty } from '../types';
+import { downloadCsv } from '../utils/export';
 
 const formatTl = (value: number | null | undefined) => {
   if (value == null) return '-';
@@ -36,30 +37,50 @@ export const PortfolioSection: React.FC = () => {
     load();
   }, []);
 
-  const totalValue = items.reduce(
+  const totalValuation = items.reduce(
     (sum, p) => sum + (p.valuation_value_tl ?? 0),
-    0
+    0,
   );
+
+  const pendorya = items.find((p) =>
+    p.name.toLowerCase().includes('pendorya'),
+  );
+
+  const pendoryaShare =
+    totalValuation > 0 && pendorya?.valuation_value_tl
+      ? (pendorya.valuation_value_tl / totalValuation) * 100
+      : null;
 
   return (
     <section className="mt-8">
       <div className="flex items-center justify-between mb-4">
-        <div>
-          <h2 className="text-lg font-semibold text-gray-900">
-            Portföy Özeti
-          </h2>
+        <div className="space-y-1">
+          <div className="flex items-center gap-3">
+            <h2 className="text-lg font-semibold text-gray-900">
+              Portföy Özeti
+            </h2>
+            <button
+              onClick={() => downloadCsv('tskb-gyo-portfolio.csv', items)}
+              className="text-xs px-3 py-1 rounded-lg border border-gray-200 text-slate-600 hover:bg-gray-50"
+            >
+              Excel'e aktar
+            </button>
+          </div>
           <p className="text-sm text-gray-500">
             30.06.2025 tarihli ekspertiz değerleri baz alınmıştır. Demo amaçlı
             görselleştirme.
           </p>
         </div>
         <div className="text-right">
-          <p className="text-xs uppercase text-gray-500">
-            Toplam Ekspertiz Değeri
-          </p>
+          <p className="text-xs uppercase text-gray-500">Toplam Ekspertiz Değeri</p>
           <p className="text-sm font-semibold text-gray-900">
-            {formatTl(totalValue)}
+            {formatTl(totalValuation)}
           </p>
+          {pendoryaShare !== null && (
+            <div className="inline-flex mt-2 text-xs px-3 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-100">
+              Pendorya payı: {pendoryaShare.toFixed(1)} %
+            </div>
+          )}
         </div>
       </div>
 

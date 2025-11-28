@@ -1,3 +1,16 @@
+# IR Console – TSKB GYO Demo
+
+IR Console, Borsa İstanbul'da işlem gören şirketlerin finans ve yatırımcı ilişkileri ekipleri için tasarlanmış küçük ama odaklı bir iç paneldir.
+
+Bu repo, IR Console'un **TSKB GYO** verileriyle çalışan demo uygulamasını içerir:
+
+- 30.06.2025 dönemi için finansal özet ve temel oranlar
+- Fındıklı Ofis Binaları, Pendorya AVM, Divan Adana Oteli ve Tahir Han'dan oluşan portföy görünümü
+- Örnek KAP bildirim listesi (başlık, tarih, link)
+- Şirkete özel çalışan, sınırlı kapsamlı bir IR asistanı
+
+Amaç, her çeyrek tekrarlanan raporlama ve IR işleri (finansal özetler, portföy tabloları, grafikler, KAP özetleri, soru–cevap hazırlıkları) için tekrar kullanılabilir, şirket başına özelleştirilebilir bir konsol sunmaktır. GYO'lar için tasarlanan bu yapı, aynı mimariyle banka, finansal kurum, enerji ve altyapı şirketlerine de uyarlanabilecek şekilde kurgulanmıştır.
+
 ## Veri Kaynakları & Varsayımlar
 
 Bu demo uygulama, TSKB GYO'nun kamuya açık verileri kullanılarak hazırlanmış, kurum içi kullanım senaryosuna yönelik bir prototiptir.
@@ -42,3 +55,5 @@ Bu prototip, TSKB GYO'nun yatırımcı ilişkileri ve finansal raporlama süreç
    - Sık sorulan yatırımcı sorularına (temettü politikası, portföy dağılımı, borç yapısı vb.) hazır ve güncel yanıtlar üretebilmesi.
 
 Bu aşamalar tamamlandığında, proje; TSKB GYO özelinde, her çeyrek tekrarlanan manuel raporlama iş yükünü azaltan ve yatırımcı ilişkileri ekibine hız kazandıran gerçek bir iç araç haline getirilebilir.
+
+> Not: Uygulamadaki veriler tanıtım amaçlıdır ve kamuya açık kaynaklardan yaklaşık olarak alınmıştır. Yatırım kararı için kullanılmamalıdır.
