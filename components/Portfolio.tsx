@@ -52,6 +52,15 @@ export const PortfolioSection: React.FC = () => {
       ? (pendorya.valuation_value_tl / totalValuation) * 100
       : null;
 
+  const pendorya = items.find((p) =>
+    p.name.toLowerCase().includes('pendorya'),
+  );
+
+  const pendoryaShare =
+    totalValuation > 0 && pendorya?.valuation_value_tl
+      ? (pendorya.valuation_value_tl / totalValuation) * 100
+      : null;
+
   return (
     <PageSection
       title="Portföy Özeti"

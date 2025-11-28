@@ -38,6 +38,29 @@ const TypeBadge: React.FC<{ notification: KapNotification }> = ({ notification }
   return <span className={`${base} bg-slate-100 text-slate-700`}>{notification.type}</span>;
 };
 
+type ChatMessage = { type: 'user' | 'bot'; content: AssistantResponse | string };
+
+const suggestedQuestions = [
+  'Portföy toplam değeri nedir?',
+  'Pendorya AVM hakkında bilgi verir misin?',
+  'Divan Adana oteli için özet verir misin?',
+  'Son özkaynak durumunu söyle.',
+];
+
+const getHighlights = (answer: string) => {
+  const sentences = answer
+    .split(/(?<=[.!?])\s+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const keywords = ['pendorya', 'özkaynak', 'equity', 'portföy'];
+
+  const matched = sentences.filter((sentence) =>
+    keywords.some((keyword) => sentence.toLowerCase().includes(keyword)),
+  );
+
+  return Array.from(new Set(matched));
+};
+
 export const Assistant: React.FC = () => {
   const [question, setQuestion] = useState('');
   const [loading, setLoading] = useState(false);
@@ -195,6 +218,7 @@ export const Assistant: React.FC = () => {
                   </div>
                 )}
               </div>
+              <span>Asistan düşünüyor...</span>
             </div>
           ))}
           {loading && (
