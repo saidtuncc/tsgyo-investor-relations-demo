@@ -37,9 +37,8 @@ export interface PortfolioProperty {
   valuation_date?: string | null;
 }
 
-
 export enum Tab {
   DASHBOARD = 'DASHBOARD',
   KAP = 'KAP',
-  ASSISTANT = 'ASSISTANT'
+  ASSISTANT = 'ASSISTANT',
 }

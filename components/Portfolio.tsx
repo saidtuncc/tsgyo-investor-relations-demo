@@ -2,19 +2,23 @@ import React, { useEffect, useState } from 'react';
 import { api } from '../services/api';
 import type { PortfolioProperty } from '../types';
 import { downloadCsv } from '../utils/export';
+import { EmptyState, PageSection } from './ui';
 
 const formatTl = (value: number | null | undefined) => {
-  if (value == null) return '-';
-  return `${value.toLocaleString('tr-TR', {
-    maximumFractionDigits: 0,
-  })} TL`;
+  if (value == null) return '—';
+  return `${value.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL`;
 };
 
 const formatArea = (value: number | null | undefined) => {
-  if (value == null) return '-';
-  return `${value.toLocaleString('tr-TR', {
-    maximumFractionDigits: 0,
-  })} m²`;
+  if (value == null) return '—';
+  return `${value.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} m²`;
+};
+
+const formatDate = (value?: string | null) => {
+  if (!value) return '—';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString('tr-TR');
 };
 
 export const PortfolioSection: React.FC = () => {
@@ -22,25 +26,31 @@ export const PortfolioSection: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const data = await api.getPortfolio();
-        setItems(data);
-      } catch (e) {
-        setError('Portföy verisi yüklenemedi.');
-      } finally {
-        setLoading(false);
-      }
-    };
+  const load = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await api.getPortfolio();
+      setItems(data);
+    } catch (e) {
+      setError('Portföy verisi yüklenemedi.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    load();
+  useEffect(() => {
+    void load();
   }, []);
 
-  const totalValuation = items.reduce(
-    (sum, p) => sum + (p.valuation_value_tl ?? 0),
-    0,
-  );
+  const totalValuation = items.reduce((sum, p) => sum + (p.valuation_value_tl ?? 0), 0);
+
+  const pendorya = items.find((p) => p.name.toLowerCase().includes('pendorya'));
+
+  const pendoryaShare =
+    totalValuation > 0 && pendorya?.valuation_value_tl
+      ? (pendorya.valuation_value_tl / totalValuation) * 100
+      : null;
 
   const pendorya = items.find((p) =>
     p.name.toLowerCase().includes('pendorya'),
@@ -52,47 +62,51 @@ export const PortfolioSection: React.FC = () => {
       : null;
 
   return (
-    <section className="mt-8">
-      <div className="flex items-center justify-between mb-4">
-        <div className="space-y-1">
-          <div className="flex items-center gap-3">
-            <h2 className="text-lg font-semibold text-gray-900">
-              Portföy Özeti
-            </h2>
-            <button
-              onClick={() => downloadCsv('tskb-gyo-portfolio.csv', items)}
-              className="text-xs px-3 py-1 rounded-lg border border-gray-200 text-slate-600 hover:bg-gray-50"
-            >
-              Excel'e aktar
-            </button>
-          </div>
-          <p className="text-sm text-gray-500">
-            30.06.2025 tarihli ekspertiz değerleri baz alınmıştır. Demo amaçlı
-            görselleştirme.
-          </p>
-        </div>
-        <div className="text-right">
+    <PageSection
+      title="Portföy Özeti"
+      subtitle="Mevcut gayrimenkul portföyü ve ekspertiz değerleri"
+      actions={
+        <button
+          onClick={() => downloadCsv('tskb-gyo-portfolio.csv', items)}
+          className="text-xs px-3 py-1 rounded-lg border border-gray-200 text-slate-600 hover:bg-gray-50"
+        >
+          Excel'e aktar
+        </button>
+      }
+    >
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+        <div>
           <p className="text-xs uppercase text-gray-500">Toplam Ekspertiz Değeri</p>
-          <p className="text-sm font-semibold text-gray-900">
-            {formatTl(totalValuation)}
-          </p>
-          {pendoryaShare !== null && (
-            <div className="inline-flex mt-2 text-xs px-3 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-100">
-              Pendorya payı: {pendoryaShare.toFixed(1)} %
-            </div>
-          )}
+          <p className="text-lg font-semibold text-gray-900">{formatTl(totalValuation)}</p>
         </div>
+        {pendoryaShare !== null && (
+          <div className="inline-flex text-xs px-3 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-100">
+            Pendorya payı: {pendoryaShare.toFixed(1)} %
+          </div>
+        )}
       </div>
 
-      {loading && (
-        <div className="text-sm text-gray-500">Portföy verisi yükleniyor…</div>
-      )}
+      {loading && <div className="text-sm text-gray-500">Portföy verisi yükleniyor…</div>}
 
       {error && !loading && (
-        <div className="text-sm text-red-500">{error}</div>
+        <EmptyState
+          title="Portföy verisi alınamadı"
+          description={error}
+          actionLabel="Tekrar dene"
+          onAction={load}
+        />
       )}
 
-      {!loading && !error && (
+      {!loading && !error && !items.length && (
+        <EmptyState
+          title="Portföy listesi boş"
+          description="Demo veri seti henüz yüklenmemiş görünüyor. Backend bağlantısını veya seed verisini kontrol edin."
+          actionLabel="Yenile"
+          onAction={load}
+        />
+      )}
+
+      {!loading && !error && items.length > 0 && (
         <div className="overflow-x-auto rounded-2xl border border-gray-100 bg-white">
           <table className="min-w-full text-sm">
             <thead className="bg-gray-50">
@@ -112,35 +126,21 @@ export const PortfolioSection: React.FC = () => {
                   key={p.id}
                   className="border-t border-gray-100 hover:bg-gray-50 transition-colors"
                 >
-                  <td className="px-4 py-3 font-medium text-gray-900">
-                    {p.name}
-                  </td>
+                  <td className="px-4 py-3 font-medium text-gray-900">{p.name}</td>
+                  <td className="px-4 py-3 text-gray-700">{p.property_type || '—'}</td>
+                  <td className="px-4 py-3 text-gray-700">{p.city || '—'}</td>
                   <td className="px-4 py-3 text-gray-700">
-                    {p.property_type || '-'}
+                    {p.rooms ? `${p.rooms} oda` : formatArea(p.gross_area_sqm)}
                   </td>
-                  <td className="px-4 py-3 text-gray-700">
-                    {p.city || '-'}
-                  </td>
-                  <td className="px-4 py-3 text-gray-700">
-                    {p.rooms
-                      ? `${p.rooms} oda`
-                      : formatArea(p.gross_area_sqm)}
-                  </td>
-                  <td className="px-4 py-3 text-gray-700">
-                    {formatArea(p.gla_sqm)}
-                  </td>
-                  <td className="px-4 py-3 text-gray-900">
-                    {formatTl(p.valuation_value_tl)}
-                  </td>
-                  <td className="px-4 py-3 text-gray-700">
-                    {p.valuation_date || '-'}
-                  </td>
+                  <td className="px-4 py-3 text-gray-700">{formatArea(p.gla_sqm)}</td>
+                  <td className="px-4 py-3 text-gray-900">{formatTl(p.valuation_value_tl)}</td>
+                  <td className="px-4 py-3 text-gray-700">{formatDate(p.valuation_date)}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       )}
-    </section>
+    </PageSection>
   );
 };
