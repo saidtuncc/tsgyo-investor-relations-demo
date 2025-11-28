@@ -2,12 +2,42 @@ import React, { useEffect, useState } from 'react';
 import { RefreshCcw, ExternalLink, FileText, AlertCircle } from 'lucide-react';
 import { KapNotification } from '../types';
 import { api } from '../services/api';
+import { downloadCsv } from '../utils/export';
 
 export const KapList: React.FC = () => {
   const [notifications, setNotifications] = useState<KapNotification[]>([]);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const formatDate = (value?: string) => {
+    if (!value) return '—';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '—';
+    return date.toLocaleString('tr-TR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
+  const getTypeBadge = (type: string) => {
+    const base = 'text-xs px-2 py-0.5 rounded-full font-medium';
+
+    if (type.toLowerCase().includes('finansal'))
+      return `${base} bg-blue-50 text-blue-700`;
+    if (type.toLowerCase().includes('özel'))
+      return `${base} bg-amber-50 text-amber-700`;
+    return `${base} bg-slate-100 text-slate-700`;
+  };
+
+  const openKap = (url: string) => {
+    if (url) {
+      window.open(url, '_blank', 'noopener,noreferrer');
+    }
+  };
 
   const fetchData = () => {
     setLoading(true);
@@ -38,14 +68,22 @@ export const KapList: React.FC = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold text-slate-800">KAP Bildirimleri</h2>
-        <button
-          onClick={handleSync}
-          disabled={syncing}
-          className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition disabled:opacity-70"
-        >
-          <RefreshCcw className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
-          <span>{syncing ? 'Senkronize Ediliyor...' : 'KAP Verisini Güncelle'}</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => downloadCsv('tskb-gyo-kap.csv', notifications)}
+            className="text-xs px-3 py-1 rounded-lg border border-gray-200 text-slate-600 hover:bg-gray-50"
+          >
+            KAP listesini Excel'e aktar
+          </button>
+          <button
+            onClick={handleSync}
+            disabled={syncing}
+            className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition disabled:opacity-70"
+          >
+            <RefreshCcw className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
+            <span>{syncing ? 'Senkronize Ediliyor...' : 'KAP Verisini Güncelle'}</span>
+          </button>
+        </div>
       </div>
 
       {error && (
@@ -73,25 +111,30 @@ export const KapList: React.FC = () => {
               </thead>
               <tbody className="divide-y divide-gray-50">
                 {notifications.map((notif) => (
-                  <tr key={notif.id} className="hover:bg-gray-50 transition">
+                  <tr
+                    key={notif.id}
+                    className="hover:bg-gray-50 transition cursor-pointer"
+                    onClick={() => openKap(notif.url)}
+                  >
                     <td className="p-4 text-sm text-gray-500 whitespace-nowrap">
-                      {new Date(notif.publish_datetime).toLocaleString('tr-TR')}
+                      {formatDate(notif.publish_datetime)}
                     </td>
                     <td className="p-4 text-sm">
-                      <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs font-medium">
-                        {notif.type}
-                      </span>
+                      <span className={getTypeBadge(notif.type)}>{notif.type}</span>
                     </td>
                     <td className="p-4 text-sm font-medium text-slate-800">{notif.title}</td>
                     <td className="p-4 text-right">
-                      <a
-                        href={notif.url}
-                        target="_blank"
-                        rel="noreferrer"
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openKap(notif.url);
+                        }}
                         className="inline-flex items-center justify-center p-2 text-blue-600 hover:bg-blue-50 rounded-full transition"
+                        aria-label="KAP'ta aç"
                       >
                         <ExternalLink className="w-4 h-4" />
-                      </a>
+                      </button>
                     </td>
                   </tr>
                 ))}

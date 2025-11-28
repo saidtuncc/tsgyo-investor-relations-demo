@@ -20,7 +20,9 @@ export interface FinancialKpi {
 
 export interface AssistantResponse {
   answer: string;
-  sources?: KapNotification[];
+  pendoryaResults?: KapNotification[];
+  equityValue?: number;
+  highlights?: string[];
 }
 
 export interface PortfolioProperty {
