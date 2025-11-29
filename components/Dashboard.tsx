@@ -14,7 +14,8 @@ import { api } from '../services/api';
 import { PortfolioSection } from './Portfolio';
 import { downloadCsv } from '../utils/export';
 import { MetricCard, PageSection, EmptyState } from './ui';
-import { appConfig } from '../config/appConfig';
+import { companyConfig } from '../src/config/company';
+import { formatTl } from '../src/utils/format';
 
 export const Dashboard: React.FC = () => {
   const [data, setData] = useState<FinancialKpi[]>([]);
@@ -66,16 +67,18 @@ export const Dashboard: React.FC = () => {
       : null;
 
   const equityComment = () => {
-    if (equityRatio === null) return 'Özkaynak oranı hesaplanamadı.';
-    if (equityRatio < 0.35)
-      return 'Özkaynak / toplam varlık oranı görece düşük, kaldıraç seviyesi dikkatle izlenmelidir.';
-    if (equityRatio <= 0.55) return 'Özkaynak / toplam varlık oranı dengeli bir seviyede.';
-    return 'Özkaynak / toplam varlık oranı güçlü bir sermaye yapısına işaret ediyor.';
+    if (equityRatio === null) return companyConfig.dashboard.equityComments.missing;
+    if (equityRatio < 0.35) return companyConfig.dashboard.equityComments.low;
+    if (equityRatio <= 0.55) return companyConfig.dashboard.equityComments.balanced;
+    return companyConfig.dashboard.equityComments.strong;
   };
 
   if (loading) {
     return (
-      <PageSection title="Finansal Özet" subtitle={appConfig.headerSubtitle}>
+      <PageSection
+        title={companyConfig.dashboard.financialSummaryTitle}
+        subtitle={companyConfig.dashboard.financialSummarySubtitle}
+      >
         <div className="p-8 text-center text-gray-500">Finansal veriler yükleniyor...</div>
       </PageSection>
     );
@@ -83,7 +86,10 @@ export const Dashboard: React.FC = () => {
 
   if (error || !data.length) {
     return (
-      <PageSection title="Finansal Özet" subtitle={appConfig.headerSubtitle}>
+      <PageSection
+        title={companyConfig.dashboard.financialSummaryTitle}
+        subtitle={companyConfig.dashboard.financialSummarySubtitle}
+      >
         <EmptyState
           title="Finansal veriler bulunamadı"
           description={
@@ -99,12 +105,14 @@ export const Dashboard: React.FC = () => {
   return (
     <div className="space-y-8 animate-fade-in">
       <PageSection
-        title="Finansal Özet"
-        subtitle={`${appConfig.shortName} portföy & NAV kokpitinde temel KPI ve oran görünümü`}
+        title={companyConfig.dashboard.financialSummaryTitle}
+        subtitle={companyConfig.dashboard.financialSummarySubtitle}
         actions={
           <>
             <button
-              onClick={() => downloadCsv('tskb-gyo-kpi.csv', data)}
+              onClick={() =>
+                downloadCsv(`${companyConfig.code.toLowerCase()}-kpi.csv`, data)
+              }
               className="text-xs px-3 py-1 rounded-lg border border-gray-200 text-slate-600 hover:bg-gray-50"
             >
               KPI'ları Excel'e aktar
@@ -130,8 +138,8 @@ export const Dashboard: React.FC = () => {
       </PageSection>
 
       <PageSection
-        title="Büyüme Trendi"
-        subtitle="Varlıklar ve özkaynaklar zaman içindeki seyri"
+        title={companyConfig.dashboard.growthTrendTitle}
+        subtitle={companyConfig.dashboard.growthTrendSubtitle}
         className="bg-white"
       >
         <div className="h-[320px] w-full">
@@ -145,7 +153,7 @@ export const Dashboard: React.FC = () => {
                 tickFormatter={(val) => `${(val / 1_000_000_000).toFixed(1)}B`}
               />
               <Tooltip
-                formatter={(value: number) => value.toLocaleString('tr-TR') + ' TL'}
+                formatter={(value: number) => formatTl(value)}
                 contentStyle={{
                   borderRadius: '8px',
                   border: 'none',
@@ -182,26 +190,26 @@ export const Dashboard: React.FC = () => {
       </PageSection>
 
       <PageSection
-        title="Öneri Merkezi (beta)"
-        subtitle="Erken aşama AI öneri paneli – temel oranlara dayalı yorumlar"
+        title={companyConfig.dashboard.recommendationCenterTitle}
+        subtitle={companyConfig.dashboard.recommendationCenterSubtitle}
       >
         <div className="space-y-3">
           <ul className="list-disc pl-5 space-y-2 text-sm text-slate-700">
             <li>{equityComment()}</li>
             {ipRatio !== null ? (
               <li>
-                Yatırım amaçlı gayrimenkullerin toplam varlıklara oranı yaklaşık {(
-                  ipRatio * 100
-                ).toFixed(1)}{' '}
-                %. Portföyün varlık kompozisyonu ağırlıklı olarak gayrimenkullerde yoğunlaşmış durumda.
+                {companyConfig.dashboard.ipRatioText.replace(
+                  '{value}',
+                  (ipRatio * 100).toFixed(1),
+                )}
               </li>
             ) : (
-              <li>Yatırım amaçlı gayrimenkul oranı hesaplanamadı.</li>
+              <li>{companyConfig.dashboard.ipRatioMissing}</li>
             )}
+            {companyConfig.dashboard.recommendationCenterBullets.map((bullet) => (
+              <li key={bullet}>{bullet}</li>
+            ))}
           </ul>
-          <p className="text-xs text-gray-500">
-            Bu alan, tam sürümde KAP ve finansal verilerden beslenen AI tabanlı önerilerle dinamik hale gelecektir.
-          </p>
         </div>
       </PageSection>
 

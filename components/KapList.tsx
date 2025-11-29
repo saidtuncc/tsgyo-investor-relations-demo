@@ -3,6 +3,8 @@ import { RefreshCcw, ExternalLink, AlertCircle } from 'lucide-react';
 import { KapNotification } from '../types';
 import { api } from '../services/api';
 import { downloadCsv } from '../utils/export';
+import { companyConfig } from '../src/config/company';
+import { formatDateTime } from '../src/utils/format';
 import { PageSection, EmptyState } from './ui';
 
 export const KapList: React.FC = () => {
@@ -10,19 +12,6 @@ export const KapList: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const formatDate = (value?: string) => {
-    if (!value) return '—';
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return '—';
-    return date.toLocaleString('tr-TR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
 
   const getTypeBadge = (type: string) => {
     const base = 'text-xs px-2 py-0.5 rounded-full font-medium';
@@ -38,7 +27,7 @@ export const KapList: React.FC = () => {
     }
   };
 
-  const fetchData = () => {
+  const loadNotifications = () => {
     setLoading(true);
     api
       .getKapNotifications()
@@ -48,7 +37,7 @@ export const KapList: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchData();
+    loadNotifications();
   }, []);
 
   const handleSync = async () => {
@@ -56,7 +45,7 @@ export const KapList: React.FC = () => {
     setError(null);
     try {
       await api.syncKap();
-      fetchData();
+      loadNotifications();
     } catch (err) {
       setError('KAP senkronizasyonu başarısız oldu.');
     } finally {
@@ -66,7 +55,7 @@ export const KapList: React.FC = () => {
 
   const exportButton = (
     <button
-      onClick={() => downloadCsv('tskb-gyo-kap.csv', notifications)}
+      onClick={() => downloadCsv(`${companyConfig.code.toLowerCase()}-kap.csv`, notifications)}
       className="text-xs px-3 py-1 rounded-lg border border-gray-200 text-slate-600 hover:bg-gray-50"
     >
       KAP listesini Excel'e aktar
@@ -126,7 +115,7 @@ export const KapList: React.FC = () => {
                   onClick={() => openKap(notif.url)}
                 >
                   <td className="p-4 text-sm text-gray-500 whitespace-nowrap">
-                    {formatDate(notif.publish_datetime)}
+                    {formatDateTime(notif.publish_datetime)}
                   </td>
                   <td className="p-4 text-sm">
                     <span className={getTypeBadge(notif.type)}>{notif.type}</span>

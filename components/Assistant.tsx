@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Send, Bot, User, FileText } from 'lucide-react';
 import { api } from '../services/api';
 import type { AssistantResponse } from '../types';
+import { companyConfig } from '../src/config/company';
 
 type ChatRole = 'user' | 'assistant';
 
@@ -11,13 +12,6 @@ type ChatMessage = {
   content: string;
   answer?: AssistantResponse;
 };
-
-const suggestedQuestions: string[] = [
-  'Portföy toplam değeri nedir?',
-  'Pendorya AVM portföy içindeki payı nedir?',
-  'Divan Adana oteli için özet verir misin?',
-  'Son özkaynak değeri ve NAV ne durumda?',
-];
 
 const highlightKeywords = ['pendorya', 'özkaynak', 'nav', 'portföy', 'kira', 'değer'];
 
@@ -76,6 +70,7 @@ export const Assistant: React.FC = () => {
   const [question, setQuestion] = useState('');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(false);
+  const { assistant } = companyConfig;
 
   const ask = async (raw: string) => {
     const trimmed = raw.trim();
@@ -137,17 +132,12 @@ export const Assistant: React.FC = () => {
       {/* Sayfa başlığı */}
       <header className="flex flex-col gap-2 sm:flex-row sm:items-baseline sm:justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-slate-900">IR Asistanı</h2>
-          <p className="text-sm text-slate-500">
-            Portföy, NAV ve KAP sorularınıza hızlı yanıtlar. Yatırımcı ilişkileri ve
-            yönetim ekibini desteklemek için tasarlanmış, kurum içi bir asistan.
-          </p>
+          <h2 className="text-2xl font-bold text-slate-900">{assistant.title}</h2>
+          <p className="text-sm text-slate-500">{assistant.subtitle}</p>
         </div>
-        <p className="text-xs text-slate-400 max-w-md sm:text-right">
-          Planlanan geliştirmeler: canlı KAP entegrasyonu, iç raporlardan tam metin
-          arama ve OpenAI orkestrasyonuyla gelişmiş senaryo analizleri.
-        </p>
       </header>
+
+      <p className="text-xs text-slate-400 max-w-3xl">{assistant.plannedFeatures}</p>
 
       <section className="bg-slate-900 text-white rounded-2xl p-5 sm:p-6 shadow-sm min-h-[400px]">
         {/* HEADER BLOĞU – GÜNCEL HÂLİ */}
@@ -158,9 +148,9 @@ export const Assistant: React.FC = () => {
           <div className="flex-1">
             <h3 className="text-base font-semibold">Yatırımcı İlişkileri Asistanı</h3>
             <p className="mt-1 text-xs text-slate-300 leading-relaxed">
-              TSKB GYO hakkında portföy, NAV, KAP bildirimleri ve temel finansal
-              sorularınızı doğal dilde sorabilirsiniz. Yanıtlar, demo amaçlı veri
-              seti üzerinden üretilmektedir.
+              {companyConfig.name} hakkında portföy, NAV, KAP bildirimleri ve
+              temel finansal sorularınızı doğal dilde sorabilirsiniz. Yanıtlar,
+              demo amaçlı veri seti üzerinden üretilmektedir.
             </p>
           </div>
         </div>
@@ -172,10 +162,9 @@ export const Assistant: React.FC = () => {
             <div className="flex-1 flex flex-col items-center justify-center text-center gap-3 text-slate-200">
               <div className="text-sm font-medium">Örnek sorular:</div>
               <div className="text-xs space-y-1">
-                <p>• Portföy toplam değeri nedir?</p>
-                <p>• Pendorya AVM portföy içindeki payı nedir?</p>
-                <p>• Divan Adana oteli için özet verir misin?</p>
-                <p>• Son özkaynak değeri ve NAV ne durumda?</p>
+                {assistant.sampleQuestions.map((questionText) => (
+                  <p key={questionText}>• {questionText}</p>
+                ))}
               </div>
             </div>
           ) : (
@@ -278,7 +267,7 @@ export const Assistant: React.FC = () => {
 
           {/* Önerilen sorular (altta, tam genişlik) */}
           <div className="mt-2 flex flex-wrap gap-2">
-            {suggestedQuestions.map((q) => (
+            {assistant.sampleQuestions.map((q) => (
               <button
                 key={q}
                 type="button"

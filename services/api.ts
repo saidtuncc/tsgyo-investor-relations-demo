@@ -11,8 +11,20 @@ const API_BASE = 'http://3.74.130.157:8000';
 //const API_BASE =
   //import.meta.env.VITE_API_BASE ?? 'http://127.0.0.1:8100';
 
+export type MetaResponse = {
+  company_code: string;
+  company_name: string;
+  demo: boolean;
+};
+
 
 export const api = {
+  async getMeta(): Promise<MetaResponse> {
+    const res = await fetch(`${API_BASE}/meta`);
+    if (!res.ok) throw new Error('Failed to fetch meta');
+    return res.json();
+  },
+
   async getKapNotifications(): Promise<KapNotification[]> {
     const res = await fetch(`${API_BASE}/kap`);
     if (!res.ok) throw new Error('Failed to fetch notifications');
